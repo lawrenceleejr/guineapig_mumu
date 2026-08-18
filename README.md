@@ -108,7 +108,7 @@ parameters.  Additional files may be produced depending on the switches:
 * `pairs.dat`/`pairs0.dat` – stored pair-production particles (when
   `store_pairs>=1`; not produced in the current no-tracking test since
   `track_pairs=0`).
-* `<params>_event<n>.hepmc` – a HepMC2 ASCII event file for each bunch
+* `<params>_event<n>.hepmc` – a HepMC3 ASCII event file for each bunch
   crossing, produced automatically as a post-processing step by
   `docker/make_hepmc.py`. It records the two incoming beams (read from
   `energy.1`/`energy.2` in the main output file) plus every photon in
@@ -142,7 +142,7 @@ docker run --rm -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:la
 
 This simulates one bunch crossing ("event") of the `muon_pairs_10tev` process
 and writes the full run log (`guinea_pig.log`), the GuineaPig output
-file(s), and a HepMC2 event file (`<params>_event<n>.hepmc`) to `./output` on
+file(s), and a HepMC3 event file (`<params>_event<n>.hepmc`) to `./output` on
 the host, in addition to printing them to stdout. No extra flags are needed
 to get the HepMC file; it is produced automatically for every run.
 
