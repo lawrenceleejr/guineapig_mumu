@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make
+
+      - name: Build (no FFTW)
+        run: make guinea_nofftw
+
+      - name: Prepare test parameters
+        run: cat test_params.dat >> acc.dat
+
+      - name: Run smoke test
+        run: ./guinea_nofftw muon ci_test ci_test.out
