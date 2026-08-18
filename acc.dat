@@ -1,0 +1,108 @@
+$ACCELERATOR:: muon
+     {
+     energy=5000.0;
+     particles=180.0;
+     beta_x=1.5;
+     emitt_x=25;
+     beta_y=beta_x.1;
+     emitt_y=emitt_x.1;
+     sigma_z=1500.0;
+     charge_sign=-1.0;
+     offset_y=0.0;
+     }
+
+$ACCELERATOR:: muon2
+     {
+     energy=5000.0;
+     particles=180.0*0.707;
+     beta_x=1.65;
+     beta_y=1.65;
+     emitt_x=27.5;
+     emitt_y=emitt_x.1;
+     sigma_z=1650.0;
+     charge_sign=-1.0;
+     offset_y=0.0;
+     }
+
+$ACCELERATOR:: muon4
+     {
+     energy=5000.0;
+     particles=180.0*0.5;
+     beta_x=1.65;
+     beta_y=1.65;
+     emitt_x=27.5;
+     emitt_y=emitt_x.1;
+     sigma_z=1650.0;
+     charge_sign=-1.0;
+     offset_y=0.0;
+     }
+
+$PARAMETERS:: muon
+     {
+     n_x=64 ;   
+     n_y=64 ;   
+     n_z=50 ;
+     n_t=5 ;    
+     cut_x=6.0*sigma_x.1 ;    
+     cut_y=6.0*sigma_y.1 ;    
+     cut_z=2.0*sigma_z.1 ;    
+     n_m=100000;
+     do_eloss=1;
+     electron_ratio=1.0;
+     do_photons=1;
+     store_photons=1;
+     do_hadrons=1;
+     hadron_ratio=1e5;
+     store_hadrons=1;
+     store_beam=1;
+     do_pairs=0;
+     track_pairs=0;
+     pair_step=0.2;
+     store_pairs=0;
+     grids=0;
+     load_beam=3;
+     load_photons=0;
+     ecm_min_gg=300.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=0;
+     waist_y=0.0;
+     waist_x=0.0;
+     charge_sign=-1.0;
+}
+
+$PARAMETERS:: pairs
+     {
+     n_x=64 ;   
+     n_y=64 ;   
+     n_z=50 ;
+     n_t=5 ;    
+     cut_x=6.0*sigma_x.1 ;    
+     cut_y=6.0*sigma_y.1 ;    
+     cut_z=2.0*sigma_z.1 ;    
+     n_m=100000;
+     do_eloss=1;
+     electron_ratio=1.0;
+     do_photons=1;
+     store_photons=1;
+     do_hadrons=1;
+     hadron_ratio=1e5;
+     store_hadrons=1;
+     store_beam=1;
+     do_pairs=1;
+     track_pairs=1;
+     pair_step=0.2;
+     store_pairs=1;
+     grids=7;
+     load_beam=3;
+     load_photons=0;
+     ecm_min_gg=9990.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=0;
+     waist_y=-300.0;
+     waist_x=-300.0;
+     charge_sign=-1.0;
+}
