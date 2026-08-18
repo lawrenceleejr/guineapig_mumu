@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Convert a GuineaPig bunch-crossing ("event") output into a HepMC2 ASCII
-event file.
+"""Convert a GuineaPig bunch-crossing ("event") output into a HepMC3 ASCII
+(Asciiv3) event file.
 
 Inputs (all paths are optional except the main GuineaPig output file):
   --out       Main GuineaPig output file (e.g. muon_pairs_10tev_event1.out).
@@ -14,7 +14,7 @@ Inputs (all paths are optional except the main GuineaPig output file):
               vx, vy, vz the normalised momentum direction (px/E, py/E, pz/E)
               of a pair-production lepton.
   --event-number   HepMC event number to record (default: 1).
-  --output    Path to write the resulting HepMC2 ASCII file to.
+  --output    Path to write the resulting HepMC3 ASCII file to.
 
 The incoming muon beams are recorded as the two incoming particles of a
 single vertex at the origin; every stored photon and pair-production lepton
@@ -154,33 +154,36 @@ def write_hepmc(output_path, event_number, energy1, energy2, particles):
     n_out = len(particles)
     n_particles = 2 + n_out
     n_vertices = 1
+    vertex_id = -1
 
     with open(output_path, "w") as f:
-        f.write("HepMC::Version 2.06.09\n")
-        f.write("HepMC::IO_GenEvent-START_EVENT_LISTING\n")
-        f.write(
-            "E %d -1 -1.0 -1.0 -1.0 0 0 %d 0 0 0 0\n"
-            % (event_number, n_vertices)
-        )
+        f.write("HepMC::Version 3.02.05\n")
+        f.write("HepMC::Asciiv3-START_EVENT_LISTING\n")
+        f.write("E %d %d %d\n" % (event_number, n_vertices, n_particles))
         f.write("U GEV MM\n")
-        f.write("V -1 0 0.0 0.0 0.0 0.0 0 %d 0\n" % n_particles)
 
         barcode = 1
+        beam_ids = []
         for pdgid, px, py, pz, e, m in (beam1, beam2):
             f.write(
-                "P %d %d %.9g %.9g %.9g %.9g %.9g 4 0.0 0.0 -1 0\n"
+                "P %d 0 %d %.9g %.9g %.9g %.9g %.9g 4\n"
                 % (barcode, pdgid, px, py, pz, e, m)
             )
+            beam_ids.append(barcode)
             barcode += 1
+
+        f.write(
+            "V %d 0 [%s]\n" % (vertex_id, ",".join(str(i) for i in beam_ids))
+        )
 
         for pdgid, px, py, pz, e, m in particles:
             f.write(
-                "P %d %d %.9g %.9g %.9g %.9g %.9g 1 0.0 0.0 0 0\n"
-                % (barcode, pdgid, px, py, pz, e, m)
+                "P %d %d %d %.9g %.9g %.9g %.9g %.9g 1\n"
+                % (barcode, vertex_id, pdgid, px, py, pz, e, m)
             )
             barcode += 1
 
-        f.write("HepMC::IO_GenEvent-END_EVENT_LISTING\n")
+        f.write("HepMC::Asciiv3-END_EVENT_LISTING\n")
 
 
 def main():

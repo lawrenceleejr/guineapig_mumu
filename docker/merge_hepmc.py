@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Merge per-event HepMC2 ASCII files into a single multi-event file.
+"""Merge per-event HepMC3 ASCII (Asciiv3) files into a single multi-event file.
 
-make_hepmc.py writes one file per bunch crossing.  A HepMC2 IO_GenEvent
+make_hepmc.py writes one file per bunch crossing.  A HepMC3 Asciiv3
 stream can hold any number of events between a single START/END listing
 pair, so merging is a matter of keeping one header, concatenating the event
 bodies, and emitting one END marker:
 
-    HepMC::Version 2.06.09
-    HepMC::IO_GenEvent-START_EVENT_LISTING
+    HepMC::Version 3.02.05
+    HepMC::Asciiv3-START_EVENT_LISTING
     E 1 ...  <- event 1 block (E, U, V, P... lines)
     E 2 ...  <- event 2 block
     ...
-    HepMC::IO_GenEvent-END_EVENT_LISTING
+    HepMC::Asciiv3-END_EVENT_LISTING
 
 Inputs are sorted by the event number embedded in the filename, so
 event10 sorts after event9 rather than after event1.
@@ -27,8 +27,8 @@ import re
 import sys
 
 VERSION_PREFIX = "HepMC::Version"
-START_MARKER = "HepMC::IO_GenEvent-START_EVENT_LISTING"
-END_MARKER = "HepMC::IO_GenEvent-END_EVENT_LISTING"
+START_MARKER = "HepMC::Asciiv3-START_EVENT_LISTING"
+END_MARKER = "HepMC::Asciiv3-END_EVENT_LISTING"
 
 
 def event_sort_key(path):
@@ -40,7 +40,7 @@ def event_sort_key(path):
 def merge(paths, output_path, renumber=False):
     n_events = 0
     n_particles = 0
-    version_line = "%s 2.06.09\n" % VERSION_PREFIX
+    version_line = "%s 3.02.05\n" % VERSION_PREFIX
 
     with open(output_path, "w") as out:
         out.write(version_line)

@@ -5,7 +5,7 @@
 # resulting log and output file(s) both to stdout and to a mountable output
 # directory, with no further action required from the user.
 #
-# In addition to the raw GuineaPig output, a HepMC2 ASCII event file is
+# In addition to the raw GuineaPig output, a HepMC3 ASCII event file is
 # produced for every bunch crossing by converting the beam energies and the
 # stored photons/pair-production leptons into a HepMC event record.
 #
