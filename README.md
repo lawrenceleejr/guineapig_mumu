@@ -123,10 +123,44 @@ The two numbers after `pairs` are the numbers of produced pairs recorded by the
 two internal bookkeeping counters; the `< E_cm >` line confirms the
 centre-of-mass energy is 10 TeV.
 
+## Docker
+
+A Docker image with `guinea_nofftw` and its input files pre-built is published
+automatically by CI to the GitHub Container Registry at
+`ghcr.io/lawrenceleejr/guineapig_mumu`. No setup is required beyond `docker run`:
+
+```bash
+docker run --rm -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:latest
+```
+
+This simulates one bunch crossing ("event") of the `muon_pairs_10tev` process
+and writes both the full run log (`guinea_pig.log`) and the GuineaPig output
+file(s) to `./output` on the host, in addition to printing them to stdout.
+
+To simulate more than one bunch crossing, pass the count as an argument or via
+the `N_EVENTS` environment variable:
+
+```bash
+docker run --rm -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:latest 5
+# or
+docker run --rm -e N_EVENTS=5 -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:latest
+```
+
+The accelerator and parameter set can be overridden with the `ACCELERATOR` and
+`PARAMS` environment variables (defaults: `muon` and `muon_pairs_10tev`).
+
+To build the image locally:
+
+```bash
+docker build -t guineapig_mumu .
+```
+
 ## CI
 
 `.github/workflows/ci.yml` builds `guinea_nofftw` on every push and pull request
-and runs the `ci_test` and `muon_pairs_10tev` parameter sets.
+and runs the `ci_test` and `muon_pairs_10tev` parameter sets. On pushes to
+`main` and version tags (`v*`), it also builds the Docker image and publishes
+it to GHCR.
 
 ## Reference
 

@@ -3,9 +3,9 @@
 # Reminder: the accelerator definition in acc.dat gives particles in units of 1e10
 # per bunch.  With energy=5000.0 GeV per beam the centre-of-mass energy is 10 TeV.
 
+# ci_test: minimal fast test (16x16 grid, 1000 macroparticles, lumi only).
 $PARAMETERS:: ci_test
      {
-     # Minimal fast test: 16x16 grid, 1000 macroparticles, lumi only.
      n_x=16 ;
      n_y=16 ;
      n_z=10 ;
@@ -39,10 +39,14 @@ $PARAMETERS:: ci_test
      charge_sign=-1.0;
 }
 
+# muon_pairs_10tev: 10 TeV muon-collider pair-production test, one bunch
+# crossing ("one event") with 1.8e12 particles per bunch.
+# do_pairs/store_pairs enable and record pair production; track_pairs=0
+# because the guinea_nofftw build crashes when tracking pairs through
+# multiple grids (pair production is still evaluated and counted); ecm_min_gg
+# is the photon-photon centre-of-mass threshold near 10 TeV.
 $PARAMETERS:: muon_pairs_10tev
      {
-     # 10 TeV muon-collider pair-production test.
-     # One bunch crossing ("one event") with 1.8e12 particles per bunch.
      n_x=32 ;
      n_y=32 ;
      n_z=20 ;
@@ -59,14 +63,14 @@ $PARAMETERS:: muon_pairs_10tev
      hadron_ratio=1;
      store_hadrons=0;
      store_beam=0;
-     do_pairs=1;       # enable pair production
-     track_pairs=0;    # do not track pairs through fields (avoids no-FFTW crash)
+     do_pairs=1;
+     track_pairs=0;
      pair_step=0.2;
-     store_pairs=1;    # store pair production information
+     store_pairs=1;
      grids=1;
      load_beam=0;
      load_photons=0;
-     ecm_min_gg=9990.0;# photon-photon CM threshold near 10 TeV
+     ecm_min_gg=9990.0;
      do_lumi=1;
      do_compt=0;
      beam_size=0;
