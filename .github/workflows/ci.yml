@@ -26,5 +26,8 @@ jobs:
       - name: Prepare test parameters
         run: cat test_params.dat >> acc.dat
 
-      - name: Run smoke test
+      - name: Run luminosity smoke test
         run: ./guinea_nofftw muon ci_test ci_test.out
+
+      - name: Run 10 TeV muon pair-production test
+        run: ./guinea_nofftw muon muon_pairs_10tev muon_pairs_10tev.out

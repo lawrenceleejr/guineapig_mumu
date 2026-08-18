@@ -1,0 +1,69 @@
+$PARAMETERS:: ci_test
+     {
+     n_x=16 ;
+     n_y=16 ;
+     n_z=10 ;
+     n_t=2 ;
+     cut_x=6.0*sigma_x.1 ;
+     cut_y=6.0*sigma_y.1 ;
+     cut_z=2.0*sigma_z.1 ;
+     n_m=1000;
+     do_eloss=0;
+     electron_ratio=1.0;
+     do_photons=0;
+     store_photons=0;
+     do_hadrons=0;
+     hadron_ratio=1;
+     store_hadrons=0;
+     store_beam=0;
+     do_pairs=0;
+     track_pairs=0;
+     pair_step=0.2;
+     store_pairs=0;
+     grids=0;
+     load_beam=0;
+     load_photons=0;
+     ecm_min_gg=300.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=1;
+     waist_y=0.0;
+     waist_x=0.0;
+     charge_sign=-1.0;
+}
+
+$PARAMETERS:: muon_pairs_10tev
+     {
+     n_x=32 ;
+     n_y=32 ;
+     n_z=20 ;
+     n_t=3 ;
+     cut_x=6.0*sigma_x.1 ;
+     cut_y=6.0*sigma_y.1 ;
+     cut_z=2.0*sigma_z.1 ;
+     n_m=5000;
+     do_eloss=1;
+     electron_ratio=1.0;
+     do_photons=1;
+     store_photons=1;
+     do_hadrons=0;
+     hadron_ratio=1;
+     store_hadrons=0;
+     store_beam=0;
+     do_pairs=1;
+     track_pairs=0;
+     pair_step=0.2;
+     store_pairs=1;
+     grids=1;
+     load_beam=0;
+     load_photons=0;
+     ecm_min_gg=9990.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=1;
+     waist_y=0.0;
+     waist_x=0.0;
+     charge_sign=-1.0;
+}
