@@ -36,6 +36,25 @@ MUON_PDGID = 13
 ELECTRON_PDGID = 11
 PHOTON_PDGID = 22
 
+# Which sign of the energy field in pairs0.dat/pairs.dat corresponds to the
+# electron.  GuineaPig guarantees the two members of a pair have opposite
+# signs but the absolute species assignment is a convention; flip this single
+# flag if the downstream convention differs.
+POSITIVE_ENERGY_IS_ELECTRON = True
+
+# Default transverse-momentum cut applied to the charged pair-production
+# leptons, in GeV.  GuineaPig itself applies no pt cut: store_pair() cuts on
+# ENERGY (pair_ecut, default 5 MeV) and the pt>20 MeV / theta>0.15 test in
+# background.c only feeds the printed anzahl_* counters, never the stored
+# output.  So without this the HepMC keeps pairs down to ~1 keV of pt.
+#
+# For reference, the MAIA inside-beam-pipe value is 17 MeV: below that a
+# charged particle's helix in the solenoid field keeps it inside the beam
+# pipe, so it never reaches the detector.  The default here is 15 MeV,
+# slightly looser so that the beam-pipe threshold can still be applied
+# downstream without having to regenerate the sample.
+DEFAULT_PT_MIN = 0.015
+
 
 def parse_beam_energies(out_path):
     """Read energy.1 / energy.2 (GeV) from a GuineaPig output file."""
@@ -93,21 +112,36 @@ def pair_four_vector(energy, vx, vy, vz):
     return px, py, pz, e
 
 
-def build_particles(photon_path, pairs_path):
-    """Return a list of (pdgid, px, py, pz, e, mass) outgoing particles."""
+def build_particles(photon_path, pairs_path, pt_min=DEFAULT_PT_MIN):
+    """Return (particles, n_pairs_cut).
+
+    particles is a list of (pdgid, px, py, pz, e, mass) outgoing particles.
+    The pt cut is applied only to the charged pair leptons: the cut models
+    containment in the beam pipe by the solenoid field, which does not bend
+    photons, so beamstrahlung photons are always kept.
+    """
     particles = []
+    n_cut = 0
     for energy, vx, vy in read_photons(photon_path):
         px, py, pz, e = photon_four_vector(energy, vx, vy)
         particles.append((PHOTON_PDGID, px, py, pz, e, 0.0))
 
-    for i, (energy, vx, vy, vz) in enumerate(read_pairs(pairs_path)):
+    for energy, vx, vy, vz in read_pairs(pairs_path):
         px, py, pz, e = pair_four_vector(energy, vx, vy, vz)
-        # Pairs are produced as e+e-; alternate the charge assignment since
-        # GuineaPig does not record it per-particle.
-        pdgid = ELECTRON_PDGID if i % 2 == 0 else -ELECTRON_PDGID
+        if math.hypot(px, py) < pt_min:
+            n_cut += 1
+            continue
+        # GuineaPig records the charge in the SIGN of the energy: store_full_pair()
+        # in background.c negates the second member of every pair ("e2 = -e2"), so
+        # the two members always carry opposite signs.  Index parity is NOT usable:
+        # pair_ecut and pair_ratio drop members individually inside store_pair(),
+        # which desynchronises the alternation (measured agreement with the true
+        # sign on a real pairs0.dat: 49.5%, i.e. a coin flip).
+        pdgid = ELECTRON_PDGID if (energy > 0.0) == POSITIVE_ENERGY_IS_ELECTRON \
+            else -ELECTRON_PDGID
         particles.append((pdgid, px, py, pz, e, ELECTRON_MASS))
 
-    return particles
+    return particles, n_cut
 
 
 def write_hepmc(output_path, event_number, energy1, energy2, particles):
@@ -155,16 +189,22 @@ def main():
     parser.add_argument("--photons", help="photon.dat file")
     parser.add_argument("--pairs", help="pairs.dat or pairs0.dat file")
     parser.add_argument("--event-number", type=int, default=1)
+    parser.add_argument(
+        "--pt-min", type=float, default=DEFAULT_PT_MIN, metavar="GEV",
+        help="transverse-momentum cut in GeV applied to the charged pair "
+             "leptons (default: %(default)s; MAIA inside-beam-pipe value is "
+             "0.017). Pass 0 to disable.")
     parser.add_argument("--output", required=True, help="HepMC file to write")
     args = parser.parse_args()
 
     energy1, energy2 = parse_beam_energies(args.out)
-    particles = build_particles(args.photons, args.pairs)
+    particles, n_cut = build_particles(args.photons, args.pairs, args.pt_min)
     write_hepmc(args.output, args.event_number, energy1, energy2, particles)
 
     print(
-        "Wrote %d outgoing particle(s) to %s"
-        % (len(particles), args.output)
+        "Wrote %d outgoing particle(s) to %s "
+        "(pt cut %g GeV removed %d pair lepton(s))"
+        % (len(particles), args.output, args.pt_min, n_cut)
     )
 
 

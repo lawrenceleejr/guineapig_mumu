@@ -14,6 +14,9 @@
 #   PARAMS       - parameter set from acc.dat/test_params.dat (default: muon_pairs_10tev)
 #   N_EVENTS     - number of bunch crossings ("events") to simulate (default: 1)
 #   OUTPUT_DIR   - directory the log and output files are written to (default: /output)
+#   PT_MIN       - pt cut in GeV applied to the charged pair leptons during the
+#                  HepMC conversion (default: 0.015; MAIA inside-beam-pipe
+#                  value is 0.017). Set to 0 to disable.
 #
 # N_EVENTS may also be given as the first positional argument, e.g.:
 #   docker run ghcr.io/<owner>/guineapig_mumu 5
@@ -23,6 +26,7 @@ ACCELERATOR="${ACCELERATOR:-muon}"
 PARAMS="${PARAMS:-muon_pairs_10tev}"
 N_EVENTS="${N_EVENTS:-1}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
+PT_MIN="${PT_MIN:-0.015}"
 
 if [ $# -ge 1 ]; then
     N_EVENTS="$1"
@@ -76,6 +80,7 @@ for i in $(seq 1 "$N_EVENTS"); do
         --photons photon.dat \
         ${PAIRS_FILE:+--pairs "$PAIRS_FILE"} \
         --event-number "$i" \
+        --pt-min "$PT_MIN" \
         --output "$OUTPUT_DIR/$HEPMC_NAME" 2>&1 | tee -a "$LOG_FILE"
 
     {

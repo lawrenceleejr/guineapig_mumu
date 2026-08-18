@@ -41,10 +41,12 @@ $PARAMETERS:: ci_test
 
 # muon_pairs_10tev: 10 TeV muon-collider pair-production test, one bunch
 # crossing ("one event") with 1.8e12 particles per bunch.
-# do_pairs/store_pairs enable and record pair production; track_pairs=0
-# because the guinea_nofftw build crashes when tracking pairs through
-# multiple grids (pair production is still evaluated and counted); ecm_min_gg
-# is the photon-photon centre-of-mass threshold near 10 TeV.
+# do_pairs enables pair production.  store_pairs=2 makes store_pair() write
+# every produced pair particle to pairs0.dat at production time (the write is
+# gated on store_pairs>1 in guinea_pig.c); this needs no tracking, so
+# track_pairs=0 is kept -- the guinea_nofftw build crashes when tracking pairs
+# through multiple grids.  ecm_min_gg is the photon-photon centre-of-mass
+# threshold near 10 TeV.
 $PARAMETERS:: muon_pairs_10tev
      {
      n_x=32 ;
@@ -66,7 +68,7 @@ $PARAMETERS:: muon_pairs_10tev
      do_pairs=1;
      track_pairs=0;
      pair_step=0.2;
-     store_pairs=1;
+     store_pairs=2;
      grids=1;
      load_beam=0;
      load_photons=0;
