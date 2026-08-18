@@ -1,7 +1,23 @@
+# GuineaPig input file.
+# All accelerator and computational parameter sets live in this file.
+# Run the program as: guinea <accelerator> <parameter-set> <output-file>
+#
+# Units used throughout:
+#   particles   : number of particles per bunch in units of 1e10
+#   energy      : GeV
+#   emitt_x/y   : normalised emittance in 1e-6 m rad
+#   beta_x/y    : mm
+#   sigma_x/y   : nm
+#   sigma_z     : um
+#   offset_x/y  : nm
+#   waist_x/y   : um
+#   angle_x/y   : rad
+#   charge_sign : -1 for opposite-sign beams (e+e-), +1 for same-sign
+
 $ACCELERATOR:: muon
      {
      energy=5000.0;
-     particles=180.0;
+     particles=180.0;   # 180.0 x 1e10 = 1.8e12 particles per bunch
      beta_x=1.5;
      emitt_x=25;
      beta_y=beta_x.1;
@@ -14,7 +30,7 @@ $ACCELERATOR:: muon
 $ACCELERATOR:: muon2
      {
      energy=5000.0;
-     particles=180.0*0.707;
+     particles=180.0*0.707;   # particles in units of 1e10
      beta_x=1.65;
      beta_y=1.65;
      emitt_x=27.5;
@@ -27,7 +43,7 @@ $ACCELERATOR:: muon2
 $ACCELERATOR:: muon4
      {
      energy=5000.0;
-     particles=180.0*0.5;
+     particles=180.0*0.5;   # particles in units of 1e10
      beta_x=1.65;
      beta_y=1.65;
      emitt_x=27.5;
