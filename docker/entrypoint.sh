@@ -5,6 +5,10 @@
 # resulting log and output file(s) both to stdout and to a mountable output
 # directory, with no further action required from the user.
 #
+# In addition to the raw GuineaPig output, a HepMC2 ASCII event file is
+# produced for every bunch crossing by converting the beam energies and the
+# stored photons/pair-production leptons into a HepMC event record.
+#
 # Configuration (env vars, all optional):
 #   ACCELERATOR  - accelerator definition from acc.dat (default: muon)
 #   PARAMS       - parameter set from acc.dat/test_params.dat (default: muon_pairs_10tev)
@@ -58,6 +62,21 @@ for i in $(seq 1 "$N_EVENTS"); do
             cp "$extra" "$OUTPUT_DIR/event${i}_${extra}"
         fi
     done
+
+    HEPMC_NAME="${PARAMS}_event${i}.hepmc"
+    PAIRS_FILE=""
+    if [ -f pairs.dat ]; then
+        PAIRS_FILE="pairs.dat"
+    elif [ -f pairs0.dat ]; then
+        PAIRS_FILE="pairs0.dat"
+    fi
+
+    python3 /usr/local/bin/make_hepmc.py \
+        --out "$OUT_NAME" \
+        --photons photon.dat \
+        ${PAIRS_FILE:+--pairs "$PAIRS_FILE"} \
+        --event-number "$i" \
+        --output "$OUTPUT_DIR/$HEPMC_NAME" 2>&1 | tee -a "$LOG_FILE"
 
     {
         echo
