@@ -23,12 +23,14 @@ COPY --from=builder /build/acc.dat ./acc.dat
 COPY --from=builder /build/test_params.dat ./test_params.dat
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/make_hepmc.py /usr/local/bin/make_hepmc.py
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/make_hepmc.py
+COPY docker/merge_hepmc.py /usr/local/bin/merge_hepmc.py
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/make_hepmc.py /usr/local/bin/merge_hepmc.py
 
 ENV ACCELERATOR=muon \
     PARAMS=muon_pairs_10tev \
     N_EVENTS=1 \
     PT_MIN=0.015 \
+    MERGE_HEPMC=1 \
     OUTPUT_DIR=/output
 
 VOLUME ["/output"]

@@ -7,7 +7,9 @@
 #
 # In addition to the raw GuineaPig output, a HepMC3 ASCII event file is
 # produced for every bunch crossing by converting the beam energies and the
-# stored photons/pair-production leptons into a HepMC event record.
+# stored photons/pair-production leptons into a HepMC event record. By
+# default, the per-event HepMC files for the run are also merged into a
+# single multi-event HepMC file.
 #
 # Configuration (env vars, all optional):
 #   ACCELERATOR  - accelerator definition from acc.dat (default: muon)
@@ -17,6 +19,9 @@
 #   PT_MIN       - pt cut in GeV applied to the charged pair leptons during the
 #                  HepMC conversion (default: 0.015; MAIA inside-beam-pipe
 #                  value is 0.017). Set to 0 to disable.
+#   MERGE_HEPMC  - whether to merge the per-event HepMC files for the run into
+#                  a single "<params>.hepmc" file (default: 1). Set to 0 to
+#                  skip merging and keep only the per-event files.
 #
 # N_EVENTS may also be given as the first positional argument, e.g.:
 #   docker run ghcr.io/<owner>/guineapig_mumu 5
@@ -27,6 +32,7 @@ PARAMS="${PARAMS:-muon_pairs_10tev}"
 N_EVENTS="${N_EVENTS:-1}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
 PT_MIN="${PT_MIN:-0.015}"
+MERGE_HEPMC="${MERGE_HEPMC:-1}"
 
 if [ $# -ge 1 ]; then
     N_EVENTS="$1"
@@ -89,6 +95,13 @@ for i in $(seq 1 "$N_EVENTS"); do
         cat "$OUT_NAME"
     } | tee -a "$LOG_FILE"
 done
+
+if [[ "$MERGE_HEPMC" != "0" && "$N_EVENTS" -gt 0 ]]; then
+    MERGED_HEPMC="$OUTPUT_DIR/${PARAMS}.hepmc"
+    python3 /usr/local/bin/merge_hepmc.py \
+        --output "$MERGED_HEPMC" \
+        "$OUTPUT_DIR/${PARAMS}"_event*.hepmc 2>&1 | tee -a "$LOG_FILE"
+fi
 
 echo | tee -a "$LOG_FILE"
 echo "Done. Log and output file(s) written to $OUTPUT_DIR" | tee -a "$LOG_FILE"

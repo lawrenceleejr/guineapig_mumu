@@ -114,6 +114,9 @@ parameters.  Additional files may be produced depending on the switches:
   `energy.1`/`energy.2` in the main output file) plus every photon in
   `photon.dat` and, when available, every pair-production lepton in
   `pairs.dat`/`pairs0.dat` as final-state particles of a single vertex.
+* `<params>.hepmc` – the per-event HepMC3 files for the whole run merged into
+  a single multi-event HepMC3 file, produced automatically by
+  `docker/merge_hepmc.py` (see [Docker](#docker) below).
 
 ## 10 TeV pair-production result
 
@@ -155,6 +158,12 @@ docker run --rm -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:la
 docker run --rm -e N_EVENTS=5 -v "$PWD/output":/output ghcr.io/lawrenceleejr/guineapig_mumu:latest
 ```
 
+By default, the per-event HepMC files for the run are also merged into a
+single `<params>.hepmc` file (via `docker/merge_hepmc.py`), so a `N_EVENTS=5`
+run produces `muon_pairs_10tev_event1.hepmc` .. `muon_pairs_10tev_event5.hepmc`
+as well as a combined `muon_pairs_10tev.hepmc` containing all 5 events. Set
+`MERGE_HEPMC=0` to skip this and keep only the per-event files.
+
 The accelerator and parameter set can be overridden with the `ACCELERATOR` and
 `PARAMS` environment variables (defaults: `muon` and `muon_pairs_10tev`).
 
@@ -162,6 +171,34 @@ To build the image locally:
 
 ```bash
 docker build -t guineapig_mumu .
+```
+
+### Singularity / Apptainer
+
+The same image can be run with [Singularity](https://sylabs.io/singularity/)
+or its drop-in replacement [Apptainer](https://apptainer.org/) (the
+`singularity` command below works identically with `apptainer`), pulling
+directly from GHCR:
+
+```bash
+mkdir -p output
+singularity run --bind "$PWD/output":/output docker://ghcr.io/lawrenceleejr/guineapig_mumu:latest
+```
+
+Environment variables are passed through with `SINGULARITYENV_` (or
+`APPTAINERENV_`) prefixes, and positional arguments are given after `--`:
+
+```bash
+singularity run --bind "$PWD/output":/output \
+    --env ACCELERATOR=muon,PARAMS=muon_pairs_10tev,N_EVENTS=5 \
+    docker://ghcr.io/lawrenceleejr/guineapig_mumu:latest
+```
+
+To build a local `.sif` image file instead of pulling on every run:
+
+```bash
+singularity build guineapig_mumu.sif docker://ghcr.io/lawrenceleejr/guineapig_mumu:latest
+singularity run --bind "$PWD/output":/output guineapig_mumu.sif
 ```
 
 ## CI
