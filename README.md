@@ -120,7 +120,9 @@ parameters.  Additional files may be produced depending on the switches:
   `docker/make_hepmc.py`. It records the two incoming beams (read from
   `energy.1`/`energy.2` in the main output file) plus every photon in
   `photon.dat` and, when available, every pair-production lepton in
-  `pairs.dat`/`pairs0.dat` as final-state particles of a single vertex.
+  `pairs.dat`/`pairs0.dat` as final-state particles of a single vertex.  Set
+  `HEPMC_SUBEVENTS=N` to randomly shuffle those outgoing particles and split
+  each bunch crossing into `N` separate HepMC events inside the file.
 * `<params>.hepmc` – the per-event HepMC3 files for the whole run merged into
   a single multi-event HepMC3 file, produced automatically by
   `docker/merge_hepmc.py` (see [Docker](#docker) below).
@@ -170,6 +172,24 @@ single `<params>.hepmc` file (via `docker/merge_hepmc.py`), so a `N_EVENTS=5`
 run produces `muon_pairs_10tev_event1.hepmc` .. `muon_pairs_10tev_event5.hepmc`
 as well as a combined `muon_pairs_10tev.hepmc` containing all 5 events. Set
 `MERGE_HEPMC=0` to skip this and keep only the per-event files.
+
+If you want the detector simulation to treat one bunch crossing as multiple
+background events, set `HEPMC_SUBEVENTS` to the desired count:
+
+```bash
+docker run --rm \
+    -e N_EVENTS=1 \
+    -e HEPMC_SUBEVENTS=8 \
+    -v "$PWD/output":/output \
+    ghcr.io/lawrenceleejr/guineapig_mumu:latest
+```
+
+This keeps the same total particle sample for the bunch crossing, but
+`docker/make_hepmc.py` first applies a reproducible random shuffle and then
+splits the outgoing particles into near-equal chunks, writing 8 HepMC events
+into `muon_pairs_10tev_event1.hepmc`.  A `N_EVENTS=5 HEPMC_SUBEVENTS=8` run
+therefore produces 40 HepMC events in total across the per-bunch-crossing files
+and in the merged `<params>.hepmc`.
 
 The accelerator and parameter set can be overridden with the `ACCELERATOR` and
 `PARAMS` environment variables (defaults: `muon` and `muon_pairs_10tev`).

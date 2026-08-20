@@ -19,6 +19,8 @@
 #   PT_MIN       - pt cut in GeV applied to the charged pair leptons during the
 #                  HepMC conversion (default: 0.015; MAIA inside-beam-pipe
 #                  value is 0.017). Set to 0 to disable.
+#   HEPMC_SUBEVENTS - split each bunch crossing's HepMC output into this many
+#                  random sub-events (default: 1).
 #   MERGE_HEPMC  - whether to merge the per-event HepMC files for the run into
 #                  a single "<params>.hepmc" file (default: 1). Set to 0 to
 #                  skip merging and keep only the per-event files.
@@ -32,6 +34,7 @@ PARAMS="${PARAMS:-muon_pairs_10tev}"
 N_EVENTS="${N_EVENTS:-1}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
 PT_MIN="${PT_MIN:-0.015}"
+HEPMC_SUBEVENTS="${HEPMC_SUBEVENTS:-1}"
 MERGE_HEPMC="${MERGE_HEPMC:-1}"
 
 if [ $# -ge 1 ]; then
@@ -40,6 +43,11 @@ fi
 
 if ! [[ "$N_EVENTS" =~ ^[0-9]+$ ]] || [ "$N_EVENTS" -lt 1 ]; then
     echo "N_EVENTS must be a positive integer (got: $N_EVENTS)" >&2
+    exit 1
+fi
+
+if ! [[ "$HEPMC_SUBEVENTS" =~ ^[0-9]+$ ]] || [ "$HEPMC_SUBEVENTS" -lt 1 ]; then
+    echo "HEPMC_SUBEVENTS must be a positive integer (got: $HEPMC_SUBEVENTS)" >&2
     exit 1
 fi
 
@@ -102,6 +110,7 @@ for i in $(seq 1 "$N_EVENTS"); do
         --photons photon.dat \
         ${PAIRS_FILE:+--pairs "$PAIRS_FILE"} \
         --event-number "$i" \
+        --sub-events "$HEPMC_SUBEVENTS" \
         --pt-min "$PT_MIN" \
         --output "$OUTPUT_DIR/$HEPMC_NAME" 2>&1 | tee -a "$LOG_FILE"
 

@@ -13,7 +13,9 @@ Inputs (all paths are optional except the main GuineaPig output file):
               store_pairs>1. Each line is "energy vx vy vz [x y z]" with
               vx, vy, vz the normalised momentum direction (px/E, py/E, pz/E)
               of a pair-production lepton.
-  --event-number   HepMC event number to record (default: 1).
+  --event-number   GuineaPig bunch-crossing number to record (default: 1).
+  --sub-events     Split the outgoing particles into this many random HepMC
+                   sub-events (default: 1).
   --output    Path to write the resulting HepMC3 ASCII file to.
 
 The incoming muon beams are recorded as the two incoming particles of a
@@ -27,6 +29,7 @@ crossing so it can be read by downstream HEP tools.
 import argparse
 import math
 import os
+import random
 import re
 import sys
 
@@ -154,44 +157,61 @@ def build_particles(photon_path, pairs_path, pt_min=DEFAULT_PT_MIN):
     return particles, n_cut
 
 
-def write_hepmc(output_path, event_number, energy1, energy2, particles):
+def split_particles(particles, n_sub_events, rng):
+    """Shuffle particles and split them into near-equal random chunks."""
+    shuffled = list(particles)
+    rng.shuffle(shuffled)
+    n_particles = len(shuffled)
+    base_size, remainder = divmod(n_particles, n_sub_events)
+    chunks = []
+    start = 0
+    for i in range(n_sub_events):
+        size = base_size + (1 if i < remainder else 0)
+        chunks.append(shuffled[start:start + size])
+        start += size
+    return chunks
+
+
+def write_hepmc(output_path, first_event_number, energy1, energy2, particle_groups):
     energy1 = energy1 if energy1 is not None else 0.0
     energy2 = energy2 if energy2 is not None else 0.0
 
     beam1 = (MUON_PDGID, 0.0, 0.0, energy1, energy1, MUON_MASS)
     beam2 = (-MUON_PDGID, 0.0, 0.0, -energy2, energy2, MUON_MASS)
 
-    n_out = len(particles)
-    n_particles = 2 + n_out
-    n_vertices = 1
-    vertex_id = -1
-
     with open(output_path, "w") as f:
         f.write("HepMC::Version 3.02.05\n")
         f.write("HepMC::Asciiv3-START_EVENT_LISTING\n")
-        f.write("E %d %d %d\n" % (event_number, n_vertices, n_particles))
-        f.write("U GEV MM\n")
+        for event_offset, particles in enumerate(particle_groups):
+            event_number = first_event_number + event_offset
+            n_out = len(particles)
+            n_particles = 2 + n_out
+            n_vertices = 1
+            vertex_id = -1
 
-        barcode = 1
-        beam_ids = []
-        for pdgid, px, py, pz, e, m in (beam1, beam2):
+            f.write("E %d %d %d\n" % (event_number, n_vertices, n_particles))
+            f.write("U GEV MM\n")
+
+            barcode = 1
+            beam_ids = []
+            for pdgid, px, py, pz, e, m in (beam1, beam2):
+                f.write(
+                    "P %d 0 %d %.9g %.9g %.9g %.9g %.9g 4\n"
+                    % (barcode, pdgid, px, py, pz, e, m)
+                )
+                beam_ids.append(barcode)
+                barcode += 1
+
             f.write(
-                "P %d 0 %d %.9g %.9g %.9g %.9g %.9g 4\n"
-                % (barcode, pdgid, px, py, pz, e, m)
+                "V %d 0 [%s]\n" % (vertex_id, ",".join(str(i) for i in beam_ids))
             )
-            beam_ids.append(barcode)
-            barcode += 1
 
-        f.write(
-            "V %d 0 [%s]\n" % (vertex_id, ",".join(str(i) for i in beam_ids))
-        )
-
-        for pdgid, px, py, pz, e, m in particles:
-            f.write(
-                "P %d %d %d %.9g %.9g %.9g %.9g %.9g 1\n"
-                % (barcode, vertex_id, pdgid, px, py, pz, e, m)
-            )
-            barcode += 1
+            for pdgid, px, py, pz, e, m in particles:
+                f.write(
+                    "P %d %d %d %.9g %.9g %.9g %.9g %.9g 1\n"
+                    % (barcode, vertex_id, pdgid, px, py, pz, e, m)
+                )
+                barcode += 1
 
         f.write("HepMC::Asciiv3-END_EVENT_LISTING\n")
 
@@ -203,21 +223,36 @@ def main():
     parser.add_argument("--pairs", help="pairs.dat or pairs0.dat file")
     parser.add_argument("--event-number", type=int, default=1)
     parser.add_argument(
+        "--sub-events", type=int, default=1, metavar="N",
+        help="split the outgoing particles into N random HepMC sub-events "
+             "(default: %(default)s)")
+    parser.add_argument(
         "--pt-min", type=float, default=DEFAULT_PT_MIN, metavar="GEV",
         help="transverse-momentum cut in GeV applied to the charged pair "
              "leptons (default: %(default)s; MAIA inside-beam-pipe value is "
              "0.017). Pass 0 to disable.")
     parser.add_argument("--output", required=True, help="HepMC file to write")
     args = parser.parse_args()
+    if args.sub_events < 1:
+        parser.error("--sub-events must be a positive integer")
 
     energy1, energy2 = parse_beam_energies(args.out)
     particles, n_cut = build_particles(args.photons, args.pairs, args.pt_min)
-    write_hepmc(args.output, args.event_number, energy1, energy2, particles)
+    particle_groups = split_particles(
+        particles, args.sub_events, random.Random(args.event_number)
+    )
+    first_event_number = (args.event_number - 1) * args.sub_events + 1
+    write_hepmc(
+        args.output, first_event_number, energy1, energy2, particle_groups
+    )
 
     print(
-        "Wrote %d outgoing particle(s) to %s "
+        "Wrote %d outgoing particle(s) across %d HepMC event(s) to %s "
         "(pt cut %g GeV removed %d pair lepton(s))"
-        % (len(particles), args.output, args.pt_min, n_cut)
+        % (
+            len(particles), args.sub_events, args.output,
+            args.pt_min, n_cut
+        )
     )
 
 
