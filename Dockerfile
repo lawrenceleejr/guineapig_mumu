@@ -31,6 +31,8 @@ ENV ACCELERATOR=muon \
     PARAMS=muon_pairs_10tev \
     N_EVENTS=1 \
     PT_MIN=0.015 \
+    E_MIN=0.002 \
+    N_SUBEVENTS=10 \
     OUTPUT_DIR=/output
 
 VOLUME ["/output"]

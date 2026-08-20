@@ -256,3 +256,57 @@ that file is dominated by the MCParticle collection, not by hits, so
 If `pairs.dat` is missing the entrypoint now prints a loud warning before
 falling back to `pairs0.dat`; the silent fallback is how the untracked samples
 went unnoticed.
+
+
+## Splitting a bunch crossing into sub-events
+
+`make_hepmc.py --n-subevents N` randomly partitions one bunch crossing into N
+events written into a single HepMC file, so the simulation stage treats them as N
+separate events and **peak memory scales with 1/N**.  Merge the resulting hits
+downstream: pair leptons do not interact with one another, so the union of the N
+events is exactly the original crossing.
+
+This is not a nicety.  A full 10 TeV crossing of tracked pairs is ~562k primaries;
+attempting 20k-primary events on a batch system gave `memory usage exceeded
+request_memory` at 4 GB, then OOM kills at ~7.9 GB resident, with single events
+still unfinished after 85 minutes.  At ~2k primaries per sub-event the same work
+runs in ~1 GB and a few minutes.
+
+The partition is random with a fixed `--seed`, not a contiguous slice: `pairs.dat`
+is written by walking a linked list, so its order can correlate with when a
+particle was stored during tracking and a contiguous slice is not an unbiased
+sample.
+
+For parallelism as well as a memory bound, write the N sub-events once and give
+each worker a slice with DD4hep's `SIM.skipNEvents` / `--numberOfEvents`.
+
+**Use N >= 2.** With `--n-subevents 1` the output is a single-event HepMC2 file,
+and DD4hep's `hepmc4` input action mis-handles that: it reports EOF, writes an
+event with no MCParticles, and still exits 0.  The tool warns if you do this.
+
+## Reducing simulation cost
+
+Measured levers, in order of usefulness:
+
+| lever | effect | effect on hits |
+|---|---|---|
+| `--n-subevents N` | peak memory / N, and enables parallelism | none -- exact partition |
+| `tools/strip_truth.py` after ddsim | 26.47 MB -> 0.23 MB (**115x**) | none -- 1,820 hits before and after |
+| `SIM.part.minimalKineticEnergy` 1 -> 100 MeV | 26.43 -> 1.54 MB (17x), and cuts peak RAM | none resolved: totals 1699/1682/1765/1710 at 1/5/20/100 MeV, 2.1% spread vs 2.4% Poisson |
+| `--pt-min 0.0045` (geometric) | removes **37.2%** of tracked pairs | **untested** -- see below |
+| `--e-min 0.002` | removes 0.076% of tracked pairs | negligible, and no measurable saving |
+
+`--pt-min 0.0045` is the physically motivated one and the only large *generator*
+side saving on offer.  A particle starting on axis in a solenoid has radial
+excursion `2*pT/(0.3*B)`, which at pT = 4.5 MeV in 5 T is 6 mm -- the nozzle bore
+`rmin` at z = 15 cm.  Below that a pair cannot reach any material at all, so it
+should cost nothing in hits while removing over a third of the primaries.  This
+has **not** been verified; measure hit yield with and without before adopting it.
+
+Not measured, but worth testing: `SIM.enableDetailedShowerMode = False` (it is
+currently on, and it drives the calorimeter contribution storage), and raising the
+Geant4 range cut in the calorimeters.
+
+A generator `--pt-min` above ~5 MeV is *not* a safe cost lever on a tracked
+sample: 39% of tracked pairs sit above 18 MeV and they are what produces the
+detector occupancy.

@@ -1,0 +1,14 @@
+# GuineaPig run products (written into the repo dir when running in place)
+output/
+pairs.dat
+pairs0.dat
+photon.dat
+lumi.*.out
+guinea_pig.log
+*.hepmc
+*.hepmc3
+*_event*.out
+
+# build products
+guinea
+*.o

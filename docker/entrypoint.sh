@@ -17,6 +17,14 @@
 #   PT_MIN       - pt cut in GeV applied to the charged pair leptons during the
 #                  HepMC conversion (default: 0.015; MAIA inside-beam-pipe
 #                  value is 0.017). Set to 0 to disable.
+#   E_MIN        - minimum total energy in GeV for any outgoing particle
+#                  (default: 0.002). Set to 0 to disable. Removes <0.1% of
+#                  tracked pairs -- not a compute-reduction lever.
+#   N_SUBEVENTS  - randomly split each bunch crossing into this many sub-events
+#                  in the HepMC file (default: 10), so the simulation stage sees
+#                  them as separate events and peak memory scales with 1/N.
+#                  Merge the resulting hits downstream. Must be >= 2: a
+#                  single-event HepMC2 file triggers a DD4hep reader bug.
 #
 # N_EVENTS may also be given as the first positional argument, e.g.:
 #   docker run ghcr.io/<owner>/guineapig_mumu 5
@@ -27,6 +35,8 @@ PARAMS="${PARAMS:-muon_pairs_10tev}"
 N_EVENTS="${N_EVENTS:-1}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
 PT_MIN="${PT_MIN:-0.015}"
+E_MIN="${E_MIN:-0.002}"
+N_SUBEVENTS="${N_SUBEVENTS:-10}"
 
 if [ $# -ge 1 ]; then
     N_EVENTS="$1"
@@ -97,6 +107,8 @@ for i in $(seq 1 "$N_EVENTS"); do
         ${PAIRS_FILE:+--pairs "$PAIRS_FILE"} \
         --event-number "$i" \
         --pt-min "$PT_MIN" \
+        --e-min "$E_MIN" \
+        --n-subevents "$N_SUBEVENTS" \
         --output "$OUTPUT_DIR/$HEPMC_NAME" 2>&1 | tee -a "$LOG_FILE"
 
     {
