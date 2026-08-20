@@ -41,13 +41,73 @@ $PARAMETERS:: ci_test
 
 # muon_pairs_10tev: 10 TeV muon-collider pair-production test, one bunch
 # crossing ("one event") with 1.8e12 particles per bunch.
-# do_pairs enables pair production.  store_pairs=2 makes store_pair() write
-# every produced pair particle to pairs0.dat at production time (the write is
-# gated on store_pairs>1 in guinea_pig.c); this needs no tracking, so
-# track_pairs=0 is kept -- the guinea_nofftw build crashes when tracking pairs
-# through multiple grids.  ecm_min_gg is the photon-photon centre-of-mass
-# threshold near 10 TeV.
+#
+# do_pairs enables pair production.  store_pairs=2 makes store_pair() write every
+# produced pair particle to pairs0.dat AT PRODUCTION TIME (the write is gated on
+# store_pairs>1 in guinea_pig.c, before the tracking list is appended).
+#
+# track_pairs=1 is REQUIRED for physically meaningful pairs.  pairs0.dat holds the
+# pair kinematics before the particles are deflected by the opposing beam's field,
+# and that deflection is what gives incoherent pairs their transverse momentum.
+# Measured on one bunch crossing (560,566 pair leptons), tracking changes:
+#     mean pT              1.73 MeV  ->  39.06 MeV   (x22.6)
+#     median pT            0.66 MeV  ->   9.83 MeV   (x14.8)
+#     N(pT > 18 MeV)         5,811   ->  219,510     (x37.8)
+# 18 MeV is the pT at which an on-axis particle's radial excursion 2*pT/(0.3*B)
+# reaches the 24 mm vertex layer in a 5 T solenoid, so untracked pairs are almost
+# entirely confined inside the beam pipe and produce essentially no detector hits.
+# The tracked output is pairs.dat, written by print_pairs() at end of run.
+#
+# pair_step=5.0 (not the 0.2 default) is needed to keep tracking stable: d_eps is
+# proportional to pair_step and the sub-step is step0/(d+1), so a LARGER pair_step
+# subdivides more finely.  With pair_step=0.2 a pair radiates more than synrad()'s
+# 10000-photon limit in a single step and the run aborts with "too many photons
+# produced by one particle".  NOTE: this value has not been checked for
+# convergence -- vary it before trusting absolute numbers.
+#
+# Tracking also requires the ph[10000] fix in step_pair_1() (see guinea_pig.c);
+# without it the run dies with "*** stack smashing detected ***".
+#
+# ecm_min_gg is the photon-photon centre-of-mass threshold near 10 TeV.
 $PARAMETERS:: muon_pairs_10tev
+     {
+     n_x=32 ;
+     n_y=32 ;
+     n_z=20 ;
+     n_t=3 ;
+     cut_x=6.0*sigma_x.1 ;
+     cut_y=6.0*sigma_y.1 ;
+     cut_z=2.0*sigma_z.1 ;
+     n_m=5000;
+     do_eloss=1;
+     electron_ratio=1.0;
+     do_photons=1;
+     store_photons=1;
+     do_hadrons=0;
+     hadron_ratio=1;
+     store_hadrons=0;
+     store_beam=0;
+     do_pairs=1;
+     track_pairs=1;
+     pair_step=5.0;
+     store_pairs=2;
+     grids=1;
+     load_beam=0;
+     load_photons=0;
+     ecm_min_gg=9990.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=1;
+     waist_y=0.0;
+     waist_x=0.0;
+     charge_sign=-1.0;
+}
+
+# muon_pairs_10tev_notrack: the pre-fix configuration, kept only so the old
+# (untracked, production-time) samples can be reproduced for comparison.
+# Do NOT use this for detector studies -- see the note above.
+$PARAMETERS:: muon_pairs_10tev_notrack
      {
      n_x=32 ;
      n_y=32 ;
@@ -81,3 +141,4 @@ $PARAMETERS:: muon_pairs_10tev
      waist_x=0.0;
      charge_sign=-1.0;
 }
+

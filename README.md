@@ -9,22 +9,29 @@ used for the reference 10 TeV muon pair-production test.
 
 ## Building
 
-The default `makefile` points to a CERN AFS installation of FFTW that is not
-available in most environments.  The CI and the recommended local build use the
-`guinea_nofftw` target, which does not require FFTW:
+Build the `guinea` target, which uses the FFT Poisson solver (`fourtrans3.c`):
 
 ```bash
-make guinea_nofftw
+sudo apt-get install -y gcc make libfftw3-dev   # Debian/Ubuntu
+make guinea FFTW_HOME=/usr
 ```
 
-Requirements: `gcc`, `make`, and the standard math library (`-lm`).
+`FFTW_HOME` defaults to `/usr` and can be pointed anywhere (it used to be
+hard-wired to a CERN AFS path that no longer resolves).  The link line sets
+`-rpath`, so the binary finds `libfftw3` without `LD_LIBRARY_PATH`.
+
+A `guinea_nofftw` target still exists and needs no FFTW, but it omits
+`fourtrans3.c`, so the two builds compute the beam-beam field differently.
+**Do not mix results from the two builds in one comparison.**
+
+Requirements: `gcc`, `make`, `libfftw3-dev`, and the standard math library.
 
 ## Running
 
 GuineaPig expects three command-line arguments:
 
 ```bash
-./guinea_nofftw <accelerator> <parameter-set> <output-file>
+./guinea <accelerator> <parameter-set> <output-file>
 ```
 
 The definitions for `<accelerator>` and `<parameter-set>` are read from
@@ -33,7 +40,7 @@ The definitions for `<accelerator>` and `<parameter-set>` are read from
 
 ```bash
 cat test_params.dat >> acc.dat
-./guinea_nofftw muon muon_pairs_10tev muon_pairs_10tev.out
+./guinea muon muon_pairs_10tev muon_pairs_10tev.out
 ```
 
 The `cat test_params.dat >> acc.dat` step appends the CI test parameter blocks
@@ -120,7 +127,7 @@ parameters.  Additional files may be produced depending on the switches:
 
 ## 10 TeV pair-production result
 
-A reference run of `./guinea_nofftw muon muon_pairs_10tev muon_pairs_10tev.out`
+A reference run of `./guinea muon muon_pairs_10tev muon_pairs_10tev.out`
 is committed as `muon_pairs_10tev.out`.  For this single bunch crossing (one
 event) with 1.8e12 muons per bunch, the output reports:
 
@@ -213,3 +220,76 @@ it to GHCR.
 GuineaPig manual (SLAC NLC webpage version), K. Thompson revision of the
 original manual by D. Schulte:
 https://indico.ihep.ac.cn/event/26852/contributions/196716/attachments/93232/122059/GuineaPigManual.pdf
+
+
+## Pair output: use `pairs.dat`, not `pairs0.dat`
+
+GuineaPig writes two different pair files and they are **not** interchangeable.
+
+| file | written by | contents |
+|---|---|---|
+| `pairs0.dat` | `store_pair()`, gated on `store_pairs>1` | pair kinematics **at production**, before the opposing beam's field deflects them |
+| `pairs.dat` | `print_pairs()`, requires `track_pairs>0` | pair kinematics **after** tracking through the beam-beam field |
+
+The beam-field deflection is what gives incoherent pairs their transverse
+momentum, so `pairs0.dat` is not usable for detector background studies.
+Measured on one bunch crossing (560,566 pair leptons, identical particles in
+both files):
+
+| | production (`pairs0.dat`) | tracked (`pairs.dat`) | ratio |
+|---|---|---|---|
+| mean pT | 1.730 MeV | 39.063 MeV | x22.6 |
+| median pT | 0.665 MeV | 9.833 MeV | x14.8 |
+| N(pT > 18 MeV) | 5,811 (1.04%) | 219,510 (39.2%) | **x37.8** |
+| mean energy | 1.305 GeV | 1.141 GeV | x0.874 (radiated) |
+
+18 MeV is where an on-axis particle's radial excursion `2*pT/(0.3*B)` reaches the
+24 mm vertex layer in a 5 T solenoid.  Untracked pairs stay inside the beam pipe
+(median excursion 0.89 mm) and produce essentially no detector hits; tracked ones
+reach 13 mm median.
+
+`muon_pairs_10tev` therefore sets `track_pairs=1`.  The previous configuration is
+kept as `muon_pairs_10tev_notrack` **only** for reproducing old samples.
+
+### Two fixes were needed to make tracking work
+
+1. **`step_pair_1()` buffer overflow.** `synrad()` emits up to 10000 photons per
+   call (its own guard is `j>=10000`) and the two beam-tracking callers declare
+   `photon[10000]`, but the pair-tracking caller declared `ph[1000]`.  A pair
+   radiating >1000 photons in one step wrote past the end of that stack array,
+   aborting with `*** stack smashing detected ***`.  The adjacent `vx0/vy0/vz0`
+   were corrupted first, which surfaced as `|v|>1` in the energy-consistency
+   check.  Fixed to `ph[10000]`.
+2. **`pair_step=5.0`** (not the `0.2` default).  `d_eps` is proportional to
+   `pair_step` and the sub-step is `step0/(d+1)`, so a *larger* `pair_step`
+   subdivides more finely.  At `0.2` a pair exceeds synrad's 10000-photon limit
+   in one step and the run aborts with "too many photons produced by one
+   particle".  **This value has not been checked for convergence** -- vary it
+   before trusting absolute numbers.
+
+The CI asserts that `pairs.dat` exists and that its mean pT is well above
+`pairs0.dat`'s, so this cannot silently regress.
+
+## Docker
+
+The image builds the FFTW `guinea` target and runs the tracked configuration:
+
+```bash
+docker run --rm -v "$PWD/out:/output" ghcr.io/lawrenceleejr/guineapig_mumu 1
+```
+
+Environment variables: `ACCELERATOR` (default `muon`), `PARAMS`
+(`muon_pairs_10tev`), `N_EVENTS` (1), `PT_MIN` (0.015), `OUTPUT_DIR`
+(`/output`).
+
+`PT_MIN` is applied by `docker/make_hepmc.py` when converting to HepMC.  Note it
+means something very different on the two pair files: `pT>15 MeV` keeps ~1% of
+production-time pairs but ~41% of tracked pairs, so on a tracked sample it is a
+consequential physics cut rather than a cheap cleanup.  Set `PT_MIN=0` to
+disable.  It is also not a useful way to shrink downstream `ddsim` output --
+that file is dominated by the MCParticle collection, not by hits, so
+`SIM.part.minimalKineticEnergy` is the lever there.
+
+If `pairs.dat` is missing the entrypoint now prints a loud warning before
+falling back to `pairs0.dat`; the silent fallback is how the untracked samples
+went unnoticed.

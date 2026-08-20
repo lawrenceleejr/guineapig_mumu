@@ -1,9 +1,12 @@
 CC=gcc
 
-FFTW_HOME=/afs/cern.ch/sw/lcg/external/fftw3/3.1.2/slc4_amd64_gcc34
+# Override for your environment, e.g. make guinea FFTW_HOME=/usr
+# (Debian/Ubuntu: apt-get install libfftw3-dev  ->  FFTW_HOME=/usr)
+FFTW_HOME?=/usr
 
 CCOPT=-O3 -ffast-math -fno-keep-inline-functions -fomit-frame-pointer -I$(FFTW_HOME)/include -fPIC
-LLOPT=-L$(FFTW_HOME)/lib -lfftw3 -lm
+# -rpath so the built binary finds libfftw3 without needing LD_LIBRARY_PATH set
+LLOPT=-L$(FFTW_HOME)/lib -Wl,-rpath,$(FFTW_HOME)/lib -lfftw3 -lm
 
 guinea : guinea_pig.c background.c grv.c file.d memory.o switches.d rndm.d histogram.o physconst.h spline.h hit.c version.h store_particle.c fourtrans3.c
 	$(CC) $(CCOPT) -D USE_FFTW -o guinea guinea_pig.c histogram.o memory.o $(LLOPT)
