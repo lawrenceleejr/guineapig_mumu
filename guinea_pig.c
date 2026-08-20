@@ -6170,7 +6170,13 @@ void step_pair_1(GRID *grids,PAIR_PARTICLE *point,float step,int n)
   const float eps=1e-35,c_eng=0.0,emass2=EMASS*EMASS;
   float x,y,z,vx,vy,vz,e_inv2,e_inv,step_2,step_q,ax,ay,vold2,scal,thetamax;
   float ex,ey,bx,by,b_norm,b_norm_i,theta,a1,a2,a3,vb,eng,d_eng;
-  float ph[1000],vx0,vy0,vz0,eng0;
+  /* synrad() emits up to 10000 photons per call -- its own guard is j>=10000 --
+     and the two beam-tracking callers correctly declare photon[10000]. This
+     buffer was ph[1000], so a pair lepton radiating >1000 photons in one step
+     wrote past the end of this stack array: "*** stack smashing detected ***".
+     The adjacent vx0/vy0/vz0/eng0 were the first casualties, which showed up as
+     |v|>1 in the SCALE_ENERGY consistency check below. */
+  float ph[10000],vx0,vy0,vz0,eng0;
   int nph;
   int i,icharge,j;
 

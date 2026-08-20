@@ -2,23 +2,25 @@
 FROM ubuntu:22.04 AS builder
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc make libc6-dev && \
+    apt-get install -y --no-install-recommends gcc make libc6-dev libfftw3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 COPY . .
-RUN make guinea_nofftw
+# Build the FFTW target: guinea_nofftw omits fourtrans3.c (the FFT Poisson
+# solver), so the two builds compute different fields and must not be mixed.
+RUN make guinea FFTW_HOME=/usr
 
 # Minimal runtime image with everything pre-installed and configured so a
 # plain `docker run` produces simulated events with no further setup.
 FROM ubuntu:22.04
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 && \
+    apt-get install -y --no-install-recommends python3 libfftw3-3 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /build/guinea_nofftw ./guinea_nofftw
+COPY --from=builder /build/guinea ./guinea
 COPY --from=builder /build/acc.dat ./acc.dat
 COPY --from=builder /build/test_params.dat ./test_params.dat
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

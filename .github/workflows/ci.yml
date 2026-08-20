@@ -18,19 +18,52 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc make
+          sudo apt-get install -y gcc make libfftw3-dev
 
-      - name: Build (no FFTW)
+      - name: Build (FFTW)
+        run: make guinea FFTW_HOME=/usr
+
+      - name: Build (no FFTW, legacy)
         run: make guinea_nofftw
 
       - name: Prepare test parameters
         run: cat test_params.dat >> acc.dat
 
       - name: Run luminosity smoke test
-        run: ./guinea_nofftw muon ci_test ci_test.out
+        run: ./guinea muon ci_test ci_test.out
 
       - name: Run 10 TeV muon pair-production test
-        run: ./guinea_nofftw muon muon_pairs_10tev muon_pairs_10tev.out
+        run: ./guinea muon muon_pairs_10tev muon_pairs_10tev.out
+
+      # Regression test for the bug this parameter set exists to avoid: pair
+      # tracking used to die in step_pair_1() (undersized ph[] buffer) and the
+      # workaround was track_pairs=0, which silently produced production-time
+      # pairs with ~23x too little pT. If pairs.dat is absent or empty, tracking
+      # did not run and any HepMC built from this would be unusable.
+      - name: Assert tracked pairs were produced
+        run: |
+          if [ ! -s pairs.dat ]; then
+            echo "pairs.dat missing or empty -- pair tracking did not run" >&2
+            exit 1
+          fi
+          echo "pairs.dat: $(wc -l < pairs.dat) tracked pair leptons"
+          python3 - <<'EOF'
+          # the whole point is that tracked pairs are harder than produced ones
+          def mean_pt(path):
+              tot = n = 0
+              for line in open(path):
+                  f = line.split()
+                  if len(f) < 4:
+                      continue
+                  e = abs(float(f[0]))
+                  tot += e * (float(f[1])**2 + float(f[2])**2) ** 0.5
+                  n += 1
+              return tot / n
+          trk, prod = mean_pt("pairs.dat"), mean_pt("pairs0.dat")
+          print(f"mean pT: produced {prod*1e3:.3f} MeV -> tracked {trk*1e3:.3f} MeV "
+                f"(x{trk/prod:.1f})")
+          assert trk > 5 * prod, f"tracked pT only x{trk/prod:.2f} above produced"
+          EOF
 
   docker:
     name: Build and publish Docker image

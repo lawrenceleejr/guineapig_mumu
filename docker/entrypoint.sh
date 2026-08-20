@@ -40,7 +40,7 @@ fi
 mkdir -p "$OUTPUT_DIR"
 
 WORKDIR="$(mktemp -d)"
-cp /app/guinea_nofftw /app/acc.dat /app/test_params.dat "$WORKDIR/"
+cp /app/guinea /app/acc.dat /app/test_params.dat "$WORKDIR/"
 cat "$WORKDIR/test_params.dat" >> "$WORKDIR/acc.dat"
 cd "$WORKDIR"
 
@@ -57,7 +57,7 @@ for i in $(seq 1 "$N_EVENTS"); do
         echo "=== Event $i/$N_EVENTS ==="
     } | tee -a "$LOG_FILE"
 
-    ./guinea_nofftw "$ACCELERATOR" "$PARAMS" "$OUT_NAME" 2>&1 | tee -a "$LOG_FILE"
+    ./guinea "$ACCELERATOR" "$PARAMS" "$OUT_NAME" 2>&1 | tee -a "$LOG_FILE"
 
     cp "$OUT_NAME" "$OUTPUT_DIR/$OUT_NAME"
 
@@ -68,11 +68,27 @@ for i in $(seq 1 "$N_EVENTS"); do
     done
 
     HEPMC_NAME="${PARAMS}_event${i}.hepmc"
+    # pairs.dat is the TRACKED output (print_pairs(), needs track_pairs>0).
+    # pairs0.dat is written at production time, before the opposing beam's field
+    # deflects the pairs, and that deflection is what sets their pT -- using it
+    # understates detector occupancy by orders of magnitude. Falling back to it
+    # silently is how that went unnoticed, so the fallback is now loud.
     PAIRS_FILE=""
     if [ -f pairs.dat ]; then
         PAIRS_FILE="pairs.dat"
     elif [ -f pairs0.dat ]; then
         PAIRS_FILE="pairs0.dat"
+        {
+            echo
+            echo "############################################################"
+            echo "WARNING: pairs.dat not found -- falling back to pairs0.dat."
+            echo "  pairs0.dat holds PRODUCTION-TIME kinematics with no beam-field"
+            echo "  deflection (mean pT 1.7 MeV vs 39 MeV tracked). The resulting"
+            echo "  HepMC is NOT suitable for detector background studies."
+            echo "  Set track_pairs=1 (and pair_step=5.0) in the parameter set."
+            echo "############################################################"
+            echo
+        } | tee -a "$LOG_FILE" >&2
     fi
 
     python3 /usr/local/bin/make_hepmc.py \

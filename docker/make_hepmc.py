@@ -53,6 +53,16 @@ POSITIVE_ENERGY_IS_ELECTRON = True
 # pipe, so it never reaches the detector.  The default here is 15 MeV,
 # slightly looser so that the beam-pipe threshold can still be applied
 # downstream without having to regenerate the sample.
+#
+# How much this cut costs depends entirely on WHICH pair file it is applied to:
+#   pairs0.dat (production time) : pT>15 MeV keeps ~1% of pairs
+#   pairs.dat  (tracked)         : pT>15 MeV keeps ~41% of pairs
+# On the tracked sample this is therefore a consequential physics choice, not a
+# cheap cleanup -- it removes most of the pairs that actually reach the detector.
+# It is also NOT a useful way to shrink the downstream ddsim output: that file is
+# dominated by the MCParticle collection (>99% of bytes for a cut sample), not by
+# hits, so SIM.part.minimalKineticEnergy is the lever for file size.  Pass 0 to
+# disable this cut.
 DEFAULT_PT_MIN = 0.015
 
 
