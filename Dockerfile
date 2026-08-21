@@ -31,7 +31,13 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/make_hepmc.py /usr/loca
 ENV ACCELERATOR=muon \
     PARAMS=muon_pairs_10tev \
     N_EVENTS=1 \
-    PT_MIN=0.015 \
+    PT_MIN=0 \
+    GEOM_FILTER=1 \
+    B_FIELD=5.0 \
+    BORE_R0=23.0 \
+    BORE_SLOPE=10.0 \
+    BORE_ZMAX=6.0 \
+    DROP_PHOTONS=0 \
     MERGE_HEPMC=1 \
     OUTPUT_DIR=/output
 

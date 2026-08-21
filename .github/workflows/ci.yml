@@ -65,6 +65,84 @@ jobs:
           assert trk > 5 * prod, f"tracked pT only x{trk/prod:.2f} above produced"
           EOF
 
+      # The geometric filter is only worth having if it is loss-free: it must
+      # never drop a lepton whose helix does reach the bore wall. Check the
+      # closed-form test against a brute-force scan of the same trajectory, and
+      # check it is a strict superset of what the old flat pT cut kept.
+      - name: Assert the geometric filter is loss-free
+        run: |
+          python3 - <<'EOF'
+          import math, sys
+          sys.path.insert(0, "docker")
+          from make_hepmc import reaches_bore, read_pairs, pair_four_vector
+
+          B, R0, SLOPE, ZMAX = 5.0, 0.023, 0.010, 6.0
+          n = n_keep = n_pt = n_below = 0
+          bad = 0
+          for energy, vx, vy, vz, x, y in read_pairs("pairs.dat"):
+              px, py, pz, e = pair_four_vector(energy, vx, vy, vz)
+              pt, rp = math.hypot(px, py), math.hypot(x, y)
+              n += 1
+              keep = reaches_bore(pt, pz, rp, B, R0, SLOPE, ZMAX)
+              # brute force: does any turn angle put the chord across the gap?
+              gap, recede = R0 - rp, SLOPE * abs(pz) / (0.3 * B)
+              chord = 2.0 * pt / (0.3 * B)
+              lim = min(math.pi, 0.3 * B * ZMAX / abs(pz)) if pz else math.pi
+              brute = gap <= 0.0 or any(
+                  chord * math.sin(0.5 * lim * i / 500.0)
+                  >= gap + recede * lim * i / 500.0 for i in range(1, 501))
+              # one-sided on purpose: a 500-point scan can miss a
+              # near-tangential crossing that the closed form resolves, but
+              # the closed form must never miss one the scan found.
+              if brute and not keep:
+                  bad += 1
+              n_keep += keep
+              n_pt += pt > 0.015
+              # analytic floor: sin() <= 1, so a kept lepton must satisfy
+              # 2*pt/(0.3*B) >= R0 - r_prod. Anything kept below that means
+              # the closed-form algebra has drifted from the geometry.
+              if keep and pt < 0.5 * 0.3 * B * max(R0 - rp, 0.0) - 1e-12:
+                  n_below += 1
+          print(f"{n} leptons: {n_keep} pass the geometric filter, "
+                f"{n_pt} pass flat pT>15 MeV")
+          assert bad == 0, (
+              f"{bad} leptons reach the wall in a brute-force scan but the "
+              "closed-form filter drops them -- the filter is lossy")
+          assert n_below == 0, (
+              f"{n_below} kept leptons are below the containment floor "
+              "0.3*B*(R0-r_prod)/2 -- reaches_bore() no longer matches the "
+              "geometry it documents")
+          assert n_keep < n_pt, "geometric filter is not tighter than the pT cut"
+          EOF
+
+      - name: Convert to HepMC and check the reduction
+        run: |
+          python3 docker/make_hepmc.py --out muon_pairs_10tev.out \
+            --photons photon.dat --pairs pairs.dat \
+            --output full.hepmc --no-geometric-filter
+          python3 docker/make_hepmc.py --out muon_pairs_10tev.out \
+            --photons photon.dat --pairs pairs.dat --output filtered.hepmc
+          python3 - <<'EOF'
+          def n(p):
+              return sum(1 for l in open(p) if l.startswith("P "))
+          full, filt = n("full.hepmc"), n("filtered.hepmc")
+          print(f"HepMC particles: {full} unfiltered -> {filt} filtered "
+                f"(x{full/filt:.2f})")
+          assert filt < full, "geometric filter removed nothing"
+          # every filtered file must still carry a weight line for the analysis
+          assert any(l.startswith("W ") for l in open("filtered.hepmc")), \
+              "no W (event weight) record written"
+          EOF
+
+      - name: Run the reduced (thinned) parameter set
+        run: |
+          rm -f pairs.dat
+          ./guinea muon muon_pairs_10tev_reduced reduced.out
+          test -s pairs.dat || { echo "reduced set produced no pairs.dat" >&2; exit 1; }
+          echo "reduced: $(wc -l < pairs.dat) tracked pair leptons"
+          grep -q "pair_ratio=0.1;" reduced.out \
+            || { echo "pair_ratio not applied" >&2; exit 1; }
+
   docker:
     name: Build and publish Docker image
     needs: build-and-test

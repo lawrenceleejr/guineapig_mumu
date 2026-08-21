@@ -104,6 +104,68 @@ $PARAMETERS:: muon_pairs_10tev
      charge_sign=-1.0;
 }
 
+# muon_pairs_10tev_reduced: same physics as muon_pairs_10tev, cheaper to
+# simulate downstream.  Two changes, both measured on one bunch crossing
+# (560566 stored leptons at the defaults):
+#
+#   pair_ecut=0.017  -- GuineaPig's production-time energy cut, raised from the
+#     5 MeV default to the energy a lepton needs before it can even have the
+#     17.2 MeV of pT required to cross a 23 mm bore in a 5 T field.  Cuts the
+#     stored sample to 415515 (x1.35) and changes the number that survives the
+#     bore filter by 0.7% -- the cut is at production, before the beam-beam
+#     field has done work on the particle, so it is not exactly free.
+#
+#   pair_ratio=0.1  -- store a random 10% of the pairs.  Applied in
+#     store_pair() before the tracking list is built, so it thins uniformly:
+#     the surviving sample scaled by 10 reproduces the full one to 0.1% in
+#     count and 1.4% in energy.  Combined with pair_ecut above: 41042 leptons,
+#     x13.7 smaller, and ~19.5k after the bore filter (x28.8 overall).
+#
+# IMPORTANT: pair_ratio thinning is only valid for quantities that average,
+# such as mean hit density -- every hit count must be scaled by 1/pair_ratio
+# (make_hepmc.py records this as the HepMC event weight; the Docker entrypoint
+# derives it from the pair_ratio GuineaPig reports).  It is NOT valid for
+# anything that depends on the true local hit density in a single crossing --
+# cluster merging, tracking confusion, occupancy tails -- because scaling up
+# 10% of the pairs gives the right mean with the wrong fluctuations.  For those
+# studies use muon_pairs_10tev and lean on the geometric filter instead.
+$PARAMETERS:: muon_pairs_10tev_reduced
+     {
+     n_x=32 ;
+     n_y=32 ;
+     n_z=20 ;
+     n_t=3 ;
+     cut_x=6.0*sigma_x.1 ;
+     cut_y=6.0*sigma_y.1 ;
+     cut_z=2.0*sigma_z.1 ;
+     n_m=5000;
+     do_eloss=1;
+     electron_ratio=1.0;
+     do_photons=1;
+     store_photons=1;
+     do_hadrons=0;
+     hadron_ratio=1;
+     store_hadrons=0;
+     store_beam=0;
+     do_pairs=1;
+     track_pairs=1;
+     pair_step=5.0;
+     pair_ecut=0.017;
+     pair_ratio=0.1;
+     store_pairs=1;
+     grids=1;
+     load_beam=0;
+     load_photons=0;
+     ecm_min_gg=9990.0;
+     do_lumi=1;
+     do_compt=0;
+     beam_size=0;
+     silent=1;
+     waist_y=0.0;
+     waist_x=0.0;
+     charge_sign=-1.0;
+}
+
 # muon_pairs_10tev_notrack: the pre-fix configuration, kept only so the old
 # (untracked, production-time) samples can be reproduced for comparison.
 # Do NOT use this for detector studies -- see the note above.

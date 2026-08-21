@@ -1,0 +1,10 @@
+# Build output of the `guinea` makefile target. `make clean` deletes it, and
+# the README tells every contributor to build it, so it is not a repo file.
+# guinea_nofftw, histogram.o and memory.o are deliberately committed and stay
+# tracked despite also being clean targets.
+/guinea
+
+# Python bytecode caches. A stale one for docker/make_hepmc.py used to be
+# committed, which is worse than useless once the source changes.
+__pycache__/
+*.py[cod]
