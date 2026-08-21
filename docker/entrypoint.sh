@@ -16,9 +16,25 @@
 #   PARAMS       - parameter set from acc.dat/test_params.dat (default: muon_pairs_10tev)
 #   N_EVENTS     - number of bunch crossings ("events") to simulate (default: 1)
 #   OUTPUT_DIR   - directory the log and output files are written to (default: /output)
-#   PT_MIN       - pt cut in GeV applied to the charged pair leptons during the
-#                  HepMC conversion (default: 0.015; MAIA inside-beam-pipe
-#                  value is 0.017). Set to 0 to disable.
+#   PT_MIN       - extra flat pt cut in GeV on the charged pair leptons during
+#                  the HepMC conversion (default: 0, i.e. off -- the geometric
+#                  filter below supersedes it).
+#   GEOM_FILTER  - drop pair leptons whose helix in the solenoid field can
+#                  never reach the bore wall inside the detector, and so can
+#                  produce neither a hit nor a shower (default: 1). This is
+#                  loss-free for the bore described by BORE_*; set to 0 to
+#                  keep every lepton.
+#   B_FIELD      - solenoid field in T for that filter (default: 5, MAIA).
+#   BORE_R0      - bore inner radius at the IP in mm (default: 23).
+#   BORE_SLOPE   - rate the bore opens with |z|, mm/m (default: 10).
+#   BORE_ZMAX    - |z| in m at which a particle has left the region (default: 6).
+#                  BORE_* MUST match the geometry being simulated; a real bore
+#                  narrower than BORE_R0 would make the filter lossy.
+#   DROP_PHOTONS - omit beamstrahlung photons, which are 0.3% of the record and
+#                  all within 3 mrad of the axis (default: 0, i.e. keep them).
+#   HEPMC_WEIGHT - HepMC event weight. Left unset it is derived from the
+#                  pair_ratio GuineaPig reports, so a thinned run carries its
+#                  own 1/pair_ratio scale factor.
 #   MERGE_HEPMC  - whether to merge the per-event HepMC files for the run into
 #                  a single "<params>.hepmc" file (default: 1). Set to 0 to
 #                  skip merging and keep only the per-event files.
@@ -31,8 +47,14 @@ ACCELERATOR="${ACCELERATOR:-muon}"
 PARAMS="${PARAMS:-muon_pairs_10tev}"
 N_EVENTS="${N_EVENTS:-1}"
 OUTPUT_DIR="${OUTPUT_DIR:-/output}"
-PT_MIN="${PT_MIN:-0.015}"
+PT_MIN="${PT_MIN:-0}"
 MERGE_HEPMC="${MERGE_HEPMC:-1}"
+GEOM_FILTER="${GEOM_FILTER:-1}"
+B_FIELD="${B_FIELD:-5.0}"
+BORE_R0="${BORE_R0:-23.0}"
+BORE_SLOPE="${BORE_SLOPE:-10.0}"
+BORE_ZMAX="${BORE_ZMAX:-6.0}"
+DROP_PHOTONS="${DROP_PHOTONS:-0}"
 
 if [ $# -ge 1 ]; then
     N_EVENTS="$1"
@@ -97,13 +119,39 @@ for i in $(seq 1 "$N_EVENTS"); do
         } | tee -a "$LOG_FILE" >&2
     fi
 
-    python3 /usr/local/bin/make_hepmc.py \
-        --out "$OUT_NAME" \
-        --photons photon.dat \
-        ${PAIRS_FILE:+--pairs "$PAIRS_FILE"} \
-        --event-number "$i" \
-        --pt-min "$PT_MIN" \
-        --output "$OUTPUT_DIR/$HEPMC_NAME" 2>&1 | tee -a "$LOG_FILE"
+    # A pair_ratio < 1 run stores only that fraction of the pairs, so each
+    # stored lepton stands for 1/pair_ratio real ones. Read the value back out
+    # of GuineaPig's own output rather than trusting the caller to remember.
+    if [ -z "${HEPMC_WEIGHT:-}" ]; then
+        PAIR_RATIO="$(sed -n 's/.*pair_ratio=\([0-9.eE+-]*\);.*/\1/p' "$OUT_NAME" | head -1)"
+        HEPMC_WEIGHT="$(python3 -c "
+import sys
+r = sys.argv[1]
+try:
+    r = float(r)
+except ValueError:
+    r = 1.0
+print(1.0/r if r > 0 else 1.0)" "${PAIR_RATIO:-1}")"
+        if [ "$HEPMC_WEIGHT" != "1.0" ]; then
+            echo "pair_ratio=$PAIR_RATIO -> HepMC event weight $HEPMC_WEIGHT" \
+                | tee -a "$LOG_FILE"
+        fi
+    fi
+
+    # built as an array: under `set -e` a $(cond && echo flag) that evaluates
+    # false makes the substitution exit non-zero, which is a trap not worth
+    # walking into for two optional flags.
+    HEPMC_ARGS=(--out "$OUT_NAME" --photons photon.dat)
+    [ -n "$PAIRS_FILE" ] && HEPMC_ARGS+=(--pairs "$PAIRS_FILE")
+    HEPMC_ARGS+=(--event-number "$i" --pt-min "$PT_MIN"
+                 --b-field "$B_FIELD" --bore-r0 "$BORE_R0"
+                 --bore-slope "$BORE_SLOPE" --bore-zmax "$BORE_ZMAX"
+                 --weight "$HEPMC_WEIGHT")
+    [ "$GEOM_FILTER" = "0" ] && HEPMC_ARGS+=(--no-geometric-filter)
+    [ "$DROP_PHOTONS" = "1" ] && HEPMC_ARGS+=(--drop-photons)
+    HEPMC_ARGS+=(--output "$OUTPUT_DIR/$HEPMC_NAME")
+
+    python3 /usr/local/bin/make_hepmc.py "${HEPMC_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
 
     {
         echo
